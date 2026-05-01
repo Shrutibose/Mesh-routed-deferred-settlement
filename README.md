@@ -1,268 +1,287 @@
-# UPI Mesh Routed Deferred Settlement
+# 🌐 UPI Mesh-Routed Deferred Settlement
 
-![Java](https://img.shields.io/badge/Java-17+-red)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.x-green)
-![Architecture](https://img.shields.io/badge/Architecture-Distributed_System-blue)
-![Status](https://img.shields.io/badge/Status-Demo_Project-orange)
+<p align="center">
+  <img src="https://img.shields.io/badge/Java-17+-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white" />
+  <img src="https://img.shields.io/badge/Spring_Boot-3.5-6DB33F?style=for-the-badge&logo=springboot&logoColor=white" />
+  <img src="https://img.shields.io/badge/Architecture-Distributed_Systems-0052CC?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Security-AES--256--GCM_+_RSA--OAEP-DC143C?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Status-Demo_Project-F4A261?style=for-the-badge" />
+</p>
 
----
-
-## Overview
-
-A Spring Boot-based distributed systems simulation that demonstrates **offline-first payment routing using a Bluetooth-style mesh network with deferred settlement**.
-
-The system models a scenario where payments are created in a fully offline environment, propagated through a peer-to-peer device mesh, and eventually settled when a bridge node regains internet connectivity.
-
-It demonstrates core distributed systems concepts including:
-
-* Offline-first message propagation
-* Hybrid cryptographic security (RSA + AES-GCM)
-* Exactly-once processing semantics
-* Idempotent transaction ingestion
-* Eventual consistency in financial systems
+> **A production-grade distributed systems simulation** that models offline-first UPI payment routing through a peer-to-peer mesh network, with cryptographically secured deferred settlement upon reconnection. Built to demonstrate real-world backend engineering: from gossip protocols to exactly-once transaction guarantees.
 
 ---
 
-## Key Features
+## 🧠 The Problem This Solves
 
-### 1. Offline Payment Creation
+Standard payment systems require constant internet connectivity. But what happens in rural India, during network outages, or in low-connectivity environments?
 
-Payments are generated as encrypted payloads using:
+This project simulates a **resilient payment infrastructure** where:
 
-* AES-GCM for data confidentiality and integrity
-* RSA-OAEP for secure key exchange
+- Users can **initiate payments offline**, with no internet access
+- Transactions **propagate peer-to-peer** through nearby devices (like Bluetooth mesh)
+- A **bridge node** uploads all collected transactions once it reconnects
+- The backend settles all transactions **safely, atomically, and exactly once**
 
-### 2. Mesh-Based Propagation
-
-Transactions propagate through a simulated peer-to-peer network:
-
-* Devices exchange packets via gossip protocol
-* TTL-based hop control
-* Fully untrusted intermediate nodes
-
-### 3. Bridge-Based Settlement
-
-A device with internet access acts as a bridge:
-
-* Uploads collected packets to backend
-* Triggers settlement pipeline
-
-### 4. Exactly-Once Guarantee
-
-Ensured via:
-
-* SHA-256 ciphertext hashing
-* Atomic `putIfAbsent` idempotency layer
-* Database-level uniqueness constraints
-
-### 5. Secure Transaction Pipeline
-
-Backend validates:
-
-* Cryptographic integrity (AES-GCM authentication)
-* Freshness (timestamp validation)
-* Replay protection
-* Balance consistency with optimistic locking
+This mirrors real-world challenges faced by systems like **ONDC, RuPay offline payments, and CBDC edge-node architectures**.
 
 ---
 
-## System Architecture
+## ✨ Key Engineering Highlights
+
+| Concept | Implementation |
+|---|---|
+| **Offline-first design** | Payments created & encrypted without any server call |
+| **Gossip protocol** | TTL-based multi-hop peer propagation across virtual devices |
+| **Hybrid encryption** | AES-256-GCM (payload) + RSA-OAEP (key wrap) |
+| **Exactly-once semantics** | SHA-256 ciphertext fingerprint + atomic `putIfAbsent` |
+| **Optimistic locking** | JPA `@Version` prevents concurrent balance corruption |
+| **Eventual consistency** | Deferred settlement engine with idempotency layer |
+| **Replay protection** | Timestamp + nonce-based payload uniqueness |
+
+---
+
+## 🏗️ System Architecture
 
 ```
-Sender Device (Offline)
-        |
-        |  Encrypt (AES-GCM + RSA-OAEP)
-        v
-Mesh Network (Peer-to-Peer Gossip Layer)
-        |
-        |  Multi-hop propagation (TTL-based)
-        v
-Bridge Device (Internet-enabled node)
-        |
-        |  HTTPS upload
-        v
-Spring Boot Backend
-        |
-        |-- Idempotency Layer (SHA-256 + CAS)
-        |-- Crypto Decryption Layer
-        |-- Validation Layer (freshness + integrity)
-        |-- Settlement Engine (@Transactional)
-        v
-Ledger (H2 / Database)
+┌─────────────────────────────────────────────────────────────────┐
+│                        OFFLINE ZONE                             │
+│                                                                 │
+│   [Sender Device]                                               │
+│        │  Encrypt payload                                       │
+│        │  AES-256-GCM  +  RSA-OAEP key wrap                    │
+│        ▼                                                        │
+│   [Mesh Network] ──── gossip ────► [Device A]                  │
+│        │                               │                        │
+│        └─────────── gossip ───────► [Device B]                 │
+│                         TTL-controlled multi-hop                │
+└────────────────────────────────┬────────────────────────────────┘
+                                 │
+                    [Bridge Node regains internet]
+                                 │ HTTPS Upload
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     SPRING BOOT BACKEND                         │
+│                                                                 │
+│   BridgeIngestionService                                        │
+│        │                                                        │
+│        ├──► IdempotencyService  (SHA-256 fingerprint + CAS)    │
+│        ├──► HybridCryptoService (AES-GCM decrypt + verify)     │
+│        ├──► ValidationLayer     (freshness + replay check)     │
+│        └──► SettlementEngine    (@Transactional + @Version)    │
+│                                 │                               │
+│                                 ▼                               │
+│                          H2 Ledger DB                           │
+│                    (append-only transactions)                   │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Technology Stack
+## 🔐 Security Design
 
-* Java 17+
-* Spring Boot 3.x
-* Spring Web
-* Spring Data JPA
-* H2 Database (in-memory)
-* Lombok
-* Java Cryptography Architecture (JCA)
+### Hybrid Encryption Pipeline
+
+Every payment payload is encrypted **before it leaves the sender device**, using a two-layer scheme:
+
+```
+PaymentInstruction (JSON)
+        │
+        ▼
+AES-256-GCM encryption
+  → produces: [IV | Ciphertext | Auth Tag]
+        │
+AES key wrapped with RSA-OAEP (server public key)
+        │
+        ▼
+MeshPacket { encryptedKey, iv, ciphertext, signedAt, nonce }
+```
+
+This ensures:
+- **Confidentiality** — intermediate mesh nodes cannot read the payload
+- **Integrity** — GCM authentication tag detects any tampering
+- **Forward secrecy** — each payment uses a fresh AES key
+
+### Idempotency & Replay Protection
+
+```
+Incoming MeshPacket
+        │
+        ▼
+SHA-256(ciphertext) → idempotencyKey
+        │
+ConcurrentHashMap.putIfAbsent(key, "CLAIMED")
+        │
+   ┌────┴────┐
+CLAIMED    NEW
+   │          │
+  Reject    Proceed to decryption & settlement
+```
+
+Prevents double-spend even under concurrent bridge uploads from multiple nodes.
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 src/main/java/com/meshrouteddeferredsettlement/upi/
-
-├── controller
-│   ├── ApiController
-│   └── DashboardController
-
-├── service
-│   ├── DemoService
-│   ├── MeshSimulatorService
-│   ├── VirtualDevice
-│   ├── SettlementService
-│   ├── BridgeIngestionService
-│   ├── IdempotencyService
-
-├── crypto
-│   ├── HybridCryptoService
-│   ├── ServerKeyHolder
-
-├── model
-│   ├── Account
-│   ├── Transaction
-│   ├── MeshPacket
-│   ├── PaymentInstruction
-│   ├── AccountRepository
-│   ├── TransactionRepository
-
-├── config
-│   ├── AppConfig
+│
+├── controller/
+│   ├── ApiController.java          # REST endpoints for mesh simulation
+│   └── DashboardController.java    # Thymeleaf UI controller
+│
+├── service/
+│   ├── DemoService.java            # Orchestrates end-to-end demo flow
+│   ├── MeshSimulatorService.java   # Manages virtual device topology
+│   ├── VirtualDevice.java          # Individual node in the mesh
+│   ├── SettlementService.java      # Atomic debit/credit engine
+│   ├── BridgeIngestionService.java # Entry point for bridge uploads
+│   └── IdempotencyService.java     # CAS-based deduplication
+│
+├── crypto/
+│   ├── HybridCryptoService.java    # AES-GCM + RSA-OAEP encrypt/decrypt
+│   └── ServerKeyHolder.java        # RSA keypair lifecycle management
+│
+├── model/
+│   ├── Account.java                # JPA entity with @Version for locking
+│   ├── Transaction.java            # Append-only ledger entry
+│   ├── MeshPacket.java             # Encrypted payload container
+│   ├── PaymentInstruction.java     # Decrypted payment intent
+│   ├── AccountRepository.java
+│   └── TransactionRepository.java
+│
+└── config/
+    └── AppConfig.java              # Spring beans and crypto config
 ```
 
 ---
 
-## API Endpoints
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Java 17+
+- Maven 3.8+
+
+### Run locally
+
+```bash
+git clone https://github.com/Shrutibose/Mesh-routed-deferred-settlement.git
+cd Mesh-routed-deferred-settlement
+./mvnw spring-boot:run
+```
+
+The application starts on `http://localhost:8080`.
+
+The H2 console is available at `http://localhost:8080/h2-console` for inspecting the in-memory ledger.
+
+---
+
+## 📡 API Reference
 
 ### System APIs
 
-| Method | Endpoint            | Description             |
-| ------ | ------------------- | ----------------------- |
-| GET    | `/api/server-key`   | Fetch RSA public key    |
-| GET    | `/api/accounts`     | List all accounts       |
-| GET    | `/api/transactions` | Get latest transactions |
-
----
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/server-key` | Fetch the RSA public key (used by sender devices to wrap AES keys) |
+| `GET` | `/api/accounts` | List all accounts with current balances |
+| `GET` | `/api/transactions` | Retrieve latest settled transactions |
 
 ### Mesh Simulation APIs
 
-| Method | Endpoint           | Description                      |
-| ------ | ------------------ | -------------------------------- |
-| POST   | `/api/demo/send`   | Create and inject payment packet |
-| GET    | `/api/mesh/state`  | View device states               |
-| POST   | `/api/mesh/gossip` | Run gossip propagation round     |
-| POST   | `/api/mesh/flush`  | Simulate bridge upload           |
-| POST   | `/api/mesh/reset`  | Reset simulation state           |
-
----
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/demo/send` | Encrypt and inject a payment into the mesh |
+| `GET` | `/api/mesh/state` | Inspect virtual device states and packet queues |
+| `POST` | `/api/mesh/gossip` | Trigger one round of gossip propagation |
+| `POST` | `/api/mesh/flush` | Simulate bridge upload → triggers settlement |
+| `POST` | `/api/mesh/reset` | Reset simulation to initial state |
 
 ### Production Ingestion API
 
-| Method | Endpoint             | Description                    |
-| ------ | -------------------- | ------------------------------ |
-| POST   | `/api/bridge/ingest` | Ingest packet from bridge node |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/bridge/ingest` | Ingest a raw `MeshPacket` from a real bridge node |
 
 ---
 
-## Security Design
+## 🧪 Testing
 
-### Hybrid Encryption
+The test suite covers the most critical failure modes in a distributed payment system:
 
-* AES-256-GCM for payload encryption
-* RSA-OAEP for AES key wrapping
-* Ensures confidentiality and integrity
-
-### Idempotency Protection
-
-* SHA-256(ciphertext) used as transaction fingerprint
-* ConcurrentHashMap-based atomic claim
-* Prevents double spending under concurrency
-
-### Replay Protection
-
-* Timestamp validation (`signedAt`)
-* Expiry window enforcement
-* Nonce-based uniqueness inside payload
-
----
-
-## Settlement Guarantees
-
-The settlement engine ensures:
-
-* Atomic debit and credit within a transaction boundary
-* Optimistic locking using `@Version`
-* Ledger immutability (transaction table is append-only)
-* Exactly-once execution semantics
-
----
-
-## Testing Strategy
-
-Key test scenarios include:
-
-* Encryption/Decryption correctness
-* Ciphertext tamper rejection
-* Concurrent duplicate ingestion (idempotency validation)
-* Multi-threaded settlement consistency
-
-Run tests:
+| Test Scenario | What It Validates |
+|---|---|
+| Encrypt → Decrypt round-trip | Cryptographic correctness |
+| Tampered ciphertext rejection | GCM auth tag enforcement |
+| Concurrent duplicate ingestion | Idempotency under race conditions |
+| Multi-threaded settlement | Balance consistency with optimistic locking |
 
 ```bash
-mvn test
+./mvnw test
 ```
 
 ---
 
-## What This Project Demonstrates
+## 🗺️ Production Roadmap
 
-This system is designed to showcase:
+This project is intentionally scoped as a simulation. Here's how each component maps to a production-grade equivalent:
 
-* Distributed systems design thinking
-* Real-world payment system architecture
-* Cryptographic protocol implementation
-* Fault tolerance and deduplication strategies
-* Eventual consistency modeling
-
----
-
-## Production Differences
-
-| Component      | Demo              | Production            |
-| -------------- | ----------------- | --------------------- |
-| Database       | H2                | PostgreSQL / MySQL    |
-| Idempotency    | ConcurrentHashMap | Redis (SET NX)        |
-| Key Storage    | JVM memory        | HSM / KMS             |
-| Mesh Layer     | Simulation        | BLE / WiFi Direct     |
-| Authentication | None              | mTLS / Signed devices |
+| Component | Current (Demo) | Production Equivalent |
+|---|---|---|
+| **Database** | H2 in-memory | PostgreSQL / MySQL with read replicas |
+| **Idempotency store** | `ConcurrentHashMap` | Redis `SET NX` with TTL |
+| **Key management** | JVM memory | HSM / AWS KMS / Google Cloud KMS |
+| **Mesh transport** | Simulated gossip | Bluetooth LE / Wi-Fi Direct / NFC |
+| **Device auth** | None | mTLS + signed device certificates |
+| **Settlement locking** | JPA `@Version` | Distributed lock (Redisson / ZooKeeper) |
+| **Monitoring** | None | Prometheus + Grafana + OpenTelemetry |
 
 ---
 
-## Limitations
+## 💡 Concepts Demonstrated
 
-* Offline double-spend is theoretically possible until settlement
-* Mesh reliability is simulated, not real-world BLE
-* No real banking integration layer
-* No device trust enforcement layer
-* Simplified networking model for demonstration purposes
+This project is a hands-on implementation of the following distributed systems principles:
+
+- **Eventual consistency** — Ledger converges to correct state after all mesh packets are settled
+- **Exactly-once delivery** — SHA-256 fingerprint + CAS prevents duplicate processing
+- **Optimistic concurrency control** — `@Version` field prevents lost updates without pessimistic locking
+- **Offline-first architecture** — Zero server dependency at payment creation time
+- **Gossip / epidemic protocols** — Probabilistic message dissemination with TTL decay
+- **Hybrid cryptography** — Combining asymmetric and symmetric algorithms for performance + security
 
 ---
 
-## Summary
+## 🛠️ Tech Stack
 
-This project simulates a **decentralized offline payment network with secure deferred settlement**, combining:
+| Layer | Technology |
+|---|---|
+| Language | Java 17 |
+| Framework | Spring Boot 3.5, Spring Web, Spring Data JPA |
+| Templating | Thymeleaf |
+| Database | H2 (in-memory) |
+| Cryptography | Java Cryptography Architecture (JCA) — built-in, no external libs |
+| Build | Maven |
+| Utilities | Lombok |
+| Validation | Spring Validation (Jakarta Bean Validation) |
 
-* Cryptography
-* Distributed systems design
-* Idempotent backend processing
-* Mesh networking simulation
+---
 
-It demonstrates how financial transactions could be routed and safely processed in disconnected environments with eventual consistency guarantees.
+## ⚠️ Known Limitations
+
+- **Offline double-spend window**: Two devices can both accept the same payment before either reaches the bridge. In production this is mitigated by reserved balance locking or CBDC-style offline spending caps.
+- **Simulated mesh**: The gossip layer runs in-process. Real-world BLE / Wi-Fi Direct would add latency, packet loss, and device discovery complexity.
+- **No device trust model**: Any device can act as a bridge. Production systems would require signed device attestation (e.g., Android Play Integrity / Secure Enclave).
+- **No banking integration**: Settlement updates an in-memory ledger only. A real system would interface with NPCI / banking core via ISO 8583 or equivalent.
+
+---
+
+## 📄 License
+
+This project is open-sourced for educational and portfolio purposes.
+
+---
+
+<p align="center">
+  Built with ❤️ to explore the intersection of <strong>distributed systems</strong>, <strong>cryptography</strong>, and <strong>fintech infrastructure</strong>.
+</p>
