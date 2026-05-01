@@ -1,9 +1,9 @@
 
-# UPI Mesh Routed Deferred Settlement — Demo
+# UPI Mesh Routed Deferred Settlement - Demo
 
 A Spring Boot backend that simulates **offline UPI-style payments routed through a Bluetooth mesh network with delayed settlement**.
 
-You are in a network-dead zone — a basement with no internet. You send ₹500 to a friend. Your phone encrypts the payment, broadcasts it to nearby phones, and the packet hops device-to-device until one phone eventually walks outside, gets internet access, and uploads it to this backend.
+You are in a network-dead zone - a basement with no internet. You send ₹500 to a friend. Your phone encrypts the payment, broadcasts it to nearby phones, and the packet hops device-to-device until one phone eventually walks outside, gets internet access, and uploads it to this backend.
 
 The backend then:
 
